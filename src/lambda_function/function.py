@@ -171,7 +171,7 @@ class PyPIProjectListProject(
 
 
 class PyPIProjectList(BaseModel, json_dumps=orjson_dumps, json_loads=orjson.loads):
-    meta: PyPIMeta
+    meta_class: PyPIMeta
     projects: list[PyPIProjectListProject]
 
     def __init__(self, **data: Any) -> None:
@@ -192,9 +192,11 @@ class PyPIProjectList(BaseModel, json_dumps=orjson_dumps, json_loads=orjson.load
             project_list = PyPIProjectList.parse_obj(
                 dict(
                     meta={
-                        "api-version": soup.head.meta.get("content") or "1.0"
-                        if soup.head.meta.get("name") == "pypi:repository-version"
-                        else "1.0"
+                        "api-version": (
+                            soup.head.meta.get("content") or "1.0"
+                            if soup.head.meta.get("name") == "pypi:repository-version"
+                            else "1.0"
+                        )
                     },
                     projects=[
                         dict(name=cast(Tag, a).string) for a in soup.body.find_all("a")
@@ -269,7 +271,7 @@ class PyPIProjectFile(BaseModel, json_dumps=orjson_dumps, json_loads=orjson.load
 
 class PyPIProjectDetail(BaseModel, json_dumps=orjson_dumps, json_loads=orjson.loads):
     files: list[PyPIProjectFile] = list()
-    meta: PyPIMeta
+    meta_class: PyPIMeta
     name: str
 
     @classmethod
@@ -326,9 +328,11 @@ class PyPIProjectDetail(BaseModel, json_dumps=orjson_dumps, json_loads=orjson.lo
                 dict(
                     files=[convert_a_tag(a) for a in soup.body.find_all("a")],
                     meta={
-                        "api-version": soup.head.meta.get("content") or "1.0"
-                        if soup.head.meta.get("name") == "pypi:repository-version"
-                        else "1.0"
+                        "api-version": (
+                            soup.head.meta.get("content") or "1.0"
+                            if soup.head.meta.get("name") == "pypi:repository-version"
+                            else "1.0"
+                        )
                     },
                     name=name,
                 )
@@ -524,11 +528,11 @@ async def authorize_user(
     if not (user := USERS_DATABASE.get(credentials.username)):
         try:
             hashed_username = sha256(credentials.username.encode()).hexdigest()
-            USERS_DATABASE[
-                credentials.username
-            ] = user = PyPIUser.parse_get_object_type_def(
-                s3_client().get_object(
-                    Bucket=BUCKET, Key=f"{USERS_PREFIX}{hashed_username}.json"
+            USERS_DATABASE[credentials.username] = user = (
+                PyPIUser.parse_get_object_type_def(
+                    s3_client().get_object(
+                        Bucket=BUCKET, Key=f"{USERS_PREFIX}{hashed_username}.json"
+                    )
                 )
             )
         except ClientError as ce:
